@@ -46,6 +46,17 @@ export const verification = pgTable('verification', {
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 })
 
+export const shareEvents = pgTable('share_events', {
+  id: text('id').primaryKey(),
+  event: text('event').notNull(),
+  shareCode: text('shareCode'),
+  referrerUserId: text('referrerUserId'),
+  referralCode: text('referralCode'),
+  source: text('source'),
+  campaign: text('campaign'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+})
+
 export const lifeReports = pgTable('life_reports', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull(),

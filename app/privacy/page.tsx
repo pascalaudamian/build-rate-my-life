@@ -1,0 +1,14 @@
+'use client'
+
+import { useState } from 'react'
+import Link from 'next/link'
+import { ArrowLeft, Download, FileImage, LockKeyhole, Music2, CalendarDays, Trash2, UserRound } from 'lucide-react'
+
+const initialSources = [{ name: 'Spotify', detail: 'Music preferences and listening activity', status: 'Connected', icon: Music2 }, { name: 'Calendar', detail: 'Event patterns and meeting density', status: 'Connected', icon: CalendarDays }, { name: 'Screenshots', detail: '3 files analyzed', status: '3 files', icon: FileImage }, { name: 'Photos', detail: 'Not connected', status: 'Not connected', icon: FileImage }, { name: 'Messages', detail: 'Not connected', status: 'Not connected', icon: UserRound }]
+
+export default function PrivacyPage() {
+  const [sources, setSources] = useState(initialSources)
+  const [notice, setNotice] = useState('')
+  const act = (message: string) => { setNotice(message); window.setTimeout(() => setNotice(''), 2600) }
+  return <main className="privacy-center"><header className="privacy-header"><Link href="/dashboard"><ArrowLeft size={16} /> Back to dashboard</Link><div className="public-brand"><span className="brand-mark">R</span> Rate My Life</div></header><div className="privacy-content"><section className="privacy-hero"><p className="eyebrow">PRIVACY CENTER</p><h1>Your data,<br /><em>your rules.</em></h1><p>Rate My Life only analyzes the sources you choose. Private source data is never automatically shared with friends.</p></section><section className="privacy-panel"><div className="privacy-panel-head"><div><p className="eyebrow">YOUR DATA</p><h2>Connected sources</h2></div><LockKeyhole size={22} /></div>{sources.map(({ name, detail, status, icon: Icon }) => <div className="privacy-source" key={name}><span className="privacy-source-icon"><Icon size={17} /></span><div><strong>{name}</strong><small>{detail}</small></div><span className={status === 'Not connected' ? 'privacy-status muted' : 'privacy-status'}>{status}</span><button className="text-button" onClick={() => act(`${name} ${status === 'Not connected' ? 'is not connected' : 'disconnected'}`)}>{status === 'Not connected' ? 'Connect' : 'Disconnect'}</button></div>)}</section><section className="privacy-actions"><button onClick={() => act('Your export is being prepared')}><Download size={16} /> Export data</button><button onClick={() => act('Source data deletion requested')}><Trash2 size={16} /> Delete source data</button><button className="danger" onClick={() => act('All data deletion requires confirmation')}><Trash2 size={16} /> Delete all data</button></section><div className="privacy-note"><LockKeyhole size={17} /><div><strong>Derived statistics only</strong><p>Friend comparisons expose only the derived statistics you explicitly allow. We do not share raw calendars, listening history, screenshots, or messages.</p></div></div></div>{notice && <div className="toast"><span className="toast-check">✓</span>{notice}</div>}</main>
+}
