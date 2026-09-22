@@ -25,6 +25,16 @@ export const auth = betterAuth({
   baseURL,
   trustedOrigins: process.env.NODE_ENV === 'development' ? developmentOrigins : productionOrigins,
   emailAndPassword: { enabled: true },
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    },
+    facebook: {
+      clientId: process.env.FACEBOOK_CLIENT_ID!,
+      clientSecret: process.env.FACEBOOK_CLIENT_SECRET!,
+    },
+  },
   ...(process.env.NODE_ENV === 'development'
     ? {
         advanced: {
