@@ -1,13 +1,22 @@
 import { db } from '@/lib/db'
 import { dataConnections, dataSources } from '@/lib/db/schema'
 import { requireUser, jsonError, requestId } from '@/lib/api-auth'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 
 export async function GET() {
   const user = await requireUser()
   const sources = await db.select().from(dataSources)
   const connections = await db.select().from(dataConnections).where(eq(dataConnections.userId, user.id))
   return Response.json({ sources, connections })
+}
+
+export async function DELETE(request: Request) {
+  const user = await requireUser()
+  const body = await request.json().catch(() => null)
+  if (!body || typeof body.connectionId !== 'string') return jsonError('connectionId is required')
+  const [connection] = await db.update(dataConnections).set({ status: 'disconnected', updatedAt: new Date() }).where(and(eq(dataConnections.userId, user.id), eq(dataConnections.id, body.connectionId))).returning({ id: dataConnections.id, status: dataConnections.status })
+  if (!connection) return jsonError('Connection not found', 404)
+  return Response.json({ connection })
 }
 
 export async function POST(request: Request) {
