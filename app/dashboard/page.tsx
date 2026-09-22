@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { generateLifeReport } from '@/lib/scoring-engine'
 import { supportedSources } from '@/lib/life-report'
 import {
   Activity,
@@ -36,14 +37,14 @@ import {
   Zap,
 } from 'lucide-react'
 
-const dimensions = [
-  { label: 'Curiosity', score: 82, color: '#6f5cff', icon: Compass },
-  { label: 'Adventure', score: 91, color: '#fa6c4f', icon: Compass },
-  { label: 'Culture', score: 88, color: '#f4b64a', icon: Headphones },
-  { label: 'Activity', score: 71, color: '#46b1a4', icon: Activity },
-  { label: 'Productivity', score: 64, color: '#4a84e8', icon: Target },
-  { label: 'Social', score: 76, color: '#e56ca2', icon: Users },
-]
+const generatedReport = generateLifeReport({
+  spotify: { uniqueArtists: 42, newArtists: 18, genres: 9, minutesListened: 1280 },
+  calendar: { totalEvents: 31, completedEvents: 25, socialEvents: 8, travelDays: 3, freeHours: 42 },
+  profile: { interests: ['design', 'travel', 'music'], goals: ['finish projects', 'meet friends'] },
+})
+
+const dimensionMeta = { curiosity: ['Curiosity', '#6f5cff', Compass], adventure: ['Adventure', '#fa6c4f', Compass], culture: ['Culture', '#f4b64a', Headphones], activity: ['Activity', '#46b1a4', Activity], productivity: ['Productivity', '#4a84e8', Target], financialDiscipline: ['Financial Discipline', '#7b68ee', Gauge], social: ['Social', '#e56ca2', Users], balance: ['Balance', '#37a98d', Gauge] } as const
+const dimensions = Object.entries(generatedReport.scores).map(([key, score]) => { const [label, color, icon] = dimensionMeta[key as keyof typeof dimensionMeta]; return { label, score, color, icon } })
 
 const navItems = [
   { label: 'Overview', icon: LayoutDashboard },
@@ -53,12 +54,12 @@ const navItems = [
   { label: 'Friends', icon: Users },
 ]
 
-function ScoreRing({ size = 192 }: { size?: number }) {
+function ScoreRing({ size = 192, score = generatedReport.overall }: { size?: number; score?: number }) {
   return (
     <div className="score-ring" style={{ width: size, height: size }}>
       <div className="score-ring-inner">
         <span className="score-label">LIFE SCORE</span>
-        <strong>74</strong>
+        <strong>{score}</strong>
         <span className="score-out-of">out of 100</span>
       </div>
     </div>
@@ -99,7 +100,7 @@ function Overview({ onNavigate, onShare }: { onNavigate: (item: string) => void;
     <section className="welcome-row"><div><p className="eyebrow">Monday, September 23, 2026</p><h1>Good morning, Damian <Sparkles className="wave" size={20} /></h1><p className="welcome-copy">Your digital life has some explaining to do.</p></div><button className="primary-button" onClick={() => onNavigate('My Report')}><Sparkles size={17} /> View my report <ArrowUpRight size={16} /></button></section>
     <section className="hero-grid">
       <div className="score-card card-surface"><div className="card-kicker"><span>YOUR LIFE SCORE</span><button className="more-button" aria-label="More options"><MoreHorizontal size={19} /></button></div><div className="score-main"><ScoreRing /><div className="score-note"><div className="trend-pill"><ArrowUpRight size={14} /> 4 pts <span>since last month</span></div><p>You are doing better than your calendar suggests.</p><button className="text-button" onClick={() => onNavigate('Trends')}>See what changed <ChevronRight size={15} /></button></div></div><div className="score-footer"><span><span className="status-dot" />Based on 3 connected sources</span><button onClick={onShare}><Share2 size={15} /> Share score</button></div></div>
-      <div className="archetype-card"><div className="archetype-orb"><Sparkles className="orb-star" size={37} /></div><div><span className="card-kicker light">YOUR ARCHETYPE</span><h2>The Weekend<br />Explorer</h2><p>Your calendar says routine. Your curiosity says otherwise.</p><button className="light-button" onClick={() => onNavigate('My Report')}>Explore your archetype <ArrowUpRight size={15} /></button></div></div>
+      <div className="archetype-card"><div className="archetype-orb"><Sparkles className="orb-star" size={37} /></div><div><span className="card-kicker light">YOUR ARCHETYPE</span><h2>{generatedReport.archetype.name.replace('The ', 'The ').replace(' ', '\u00a0').split('\u00a0').map((word, index) => <span key={index}>{word}{index === 0 ? <br /> : ' '}</span>)}</h2><p>{generatedReport.archetype.summary}</p><button className="light-button" onClick={() => onNavigate('My Report')}>Explore your archetype <ArrowUpRight size={15} /></button></div></div>
     </section>
     <section className="section-heading"><div><p className="eyebrow">THE BIG PICTURE</p><h2>Your life dimensions</h2></div><button className="text-button" onClick={() => onNavigate('My Report')}>View full breakdown <ChevronRight size={15} /></button></section>
     <section className="dimension-grid">{dimensions.map((item) => { const Icon = item.icon; return <div className="dimension-card card-surface" key={item.label}><div className="dimension-top"><div className="dimension-icon" style={{ color: item.color, background: `${item.color}18` }}><Icon size={17} /></div><span>{item.label}</span><strong>{item.score}</strong></div><div className="progress-track"><div className="progress-fill" style={{ width: `${item.score}%`, background: item.color }} /></div><span className="dimension-caption">{item.score > 85 ? 'A standout strength' : item.score > 75 ? 'Looking good' : 'Room to grow'}</span></div> })}</section>

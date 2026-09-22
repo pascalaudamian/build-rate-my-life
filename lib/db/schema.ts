@@ -52,6 +52,8 @@ export const lifeReports = pgTable('life_reports', {
   score: integer('score').notNull(),
   archetype: text('archetype').notNull(),
   dimensions: jsonb('dimensions').notNull(),
+  rawFeatures: jsonb('rawFeatures').notNull().default({}),
+  scoreVersion: text('scoreVersion').notNull().default('1.0'),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 })
