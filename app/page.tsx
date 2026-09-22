@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { supportedSources } from '@/lib/life-report'
 import {
   Activity,
   ArrowUpRight,
@@ -117,7 +118,19 @@ function Trends() {
 }
 
 function DataSources({ onToast }: { onToast: (message: string) => void }) {
-  return <div className="content-wrap"><section className="welcome-row"><div><p className="eyebrow">DATA SOURCES</p><h1>What should we<br /><em>look at next?</em></h1><p className="welcome-copy">You are always in control. Connect only what feels right.</p></div><div className="source-security"><LockKeyhole size={15} /> Private by default</div></section><div className="data-source-list"><div className="data-source-row"><div className="source-icon spotify"><Music2 size={21} /></div><div><strong>Spotify</strong><span>Music preferences, artists, genres and listening activity</span></div><div className="row-actions"><span className="status-connected"><Zap size={12} /> Connected</span><button onClick={() => onToast('Spotify sync started')}><Activity size={15} /> Sync</button></div></div><div className="data-source-row"><div className="source-icon calendar"><CalendarDays size={21} /></div><div><strong>Calendar</strong><span>Event patterns, free time and meeting density</span></div><div className="row-actions"><span className="status-connected"><Zap size={12} /> Connected</span><button onClick={() => onToast('Calendar sync started')}><Activity size={15} /> Sync</button></div></div><div className="data-source-row"><div className="source-icon screenshots"><FileImage size={21} /></div><div><strong>Screenshots</strong><span>Upload images to find patterns in your digital life</span></div><div className="row-actions"><button className="connect-button" onClick={() => onToast('Upload flow coming up next')}><Upload size={15} /> Connect</button></div></div></div><div className="privacy-banner"><div className="privacy-icon"><LockKeyhole size={17} /></div><div><strong>We only analyze what you choose to share.</strong><p>Source data is private by default and never shared with friends. You can disconnect or delete anything at any time.</p></div><ChevronRight size={17} /></div></div>
+  const [uploadedFile, setUploadedFile] = useState<string | null>(null)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+
+  const handleUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setUploadedFile(file.name)
+    setIsAnalyzing(true)
+    onToast('Screenshot added — preparing your report')
+    window.setTimeout(() => setIsAnalyzing(false), 1800)
+  }
+
+  return <div className="content-wrap"><section className="welcome-row"><div><p className="eyebrow">DATA SOURCES</p><h1>What should we<br /><em>look at next?</em></h1><p className="welcome-copy">You are always in control. Connect only what feels right.</p></div><div className="source-security"><LockKeyhole size={15} /> Private by default</div></section><div className="data-source-list"><div className="data-source-row"><div className="source-icon spotify"><Music2 size={21} /></div><div><strong>Spotify</strong><span>Music preferences, artists, genres and listening activity</span></div><div className="row-actions"><span className="status-connected"><Zap size={12} /> Connected</span><button onClick={() => onToast('Spotify sync started')}><Activity size={15} /> Sync</button></div></div><div className="data-source-row"><div className="source-icon calendar"><CalendarDays size={21} /></div><div><strong>Calendar</strong><span>Event patterns, free time and meeting density</span></div><div className="row-actions"><span className="status-connected"><Zap size={12} /> Connected</span><button onClick={() => onToast('Calendar sync started')}><Activity size={15} /> Sync</button></div></div><div className="data-source-row"><div className="source-icon screenshots"><FileImage size={21} /></div><div><strong>Screenshots</strong><span>{uploadedFile ?? 'Upload images to find patterns in your digital life'}</span></div><div className="row-actions">{uploadedFile && <span className="status-connected"><Zap size={12} /> {isAnalyzing ? 'Analyzing' : 'Ready'}</span>}<label className="connect-button"><Upload size={15} /> {uploadedFile ? 'Add another' : 'Upload'}<input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={handleUpload} /></label></div></div></div><div className="source-extension"><div><Sparkles size={17} /><strong>More ways to tell your story</strong><p>Photos, bookmarks, expenses, fitness and messages can join your report as new connectors.</p></div><span>{supportedSources.length} connectors planned</span></div><div className="privacy-banner"><div className="privacy-icon"><LockKeyhole size={17} /></div><div><strong>We only analyze what you choose to share.</strong><p>Source data is private by default and never shared with friends. You can disconnect or delete anything at any time.</p></div><ChevronRight size={17} /></div></div>
 }
 
 export default function Page() {
