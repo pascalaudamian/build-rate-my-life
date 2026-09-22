@@ -26,7 +26,7 @@ export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
       setError('We could not complete that request. Check your details and try again.')
       return
     }
-    router.push('/')
+    router.push('/onboarding')
     router.refresh()
   }
 
