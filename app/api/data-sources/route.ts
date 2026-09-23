@@ -23,6 +23,6 @@ export async function POST(request: Request) {
   const user = await requireUser()
   const body = await request.json().catch(() => null)
   if (!body || typeof body.sourceId !== 'string' || body.sourceId.length > 120) return jsonError('sourceId is required')
-  const [connection] = await db.insert(dataConnections).values({ id: requestId(), userId: user.id, sourceId: body.sourceId, status: 'connected', metadata: {} }).returning()
+  const [connection] = await db.insert(dataConnections).values({ id: requestId(), userId: user.id, sourceId: body.sourceId, status: 'pending_authorization', metadata: { requestedAt: new Date().toISOString() } }).returning()
   return Response.json({ connection }, { status: 201 })
 }
