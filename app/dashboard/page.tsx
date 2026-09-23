@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import useSWR from 'swr'
 import { generateLifeReport } from '@/lib/scoring-engine'
 import { supportedSources } from '@/lib/life-report'
 import {
@@ -96,12 +97,18 @@ function SourceCard({ icon, title, detail, status, accent, onClick }: { icon: Re
   return <button className="source-card" onClick={onClick}><div className="source-icon" style={{ background: accent }}>{icon}</div><div className="source-copy"><strong>{title}</strong><span>{detail}</span></div><div className={`source-status ${status === 'Connected' ? 'connected' : ''}`}>{status === 'Connected' ? <Zap size={12} /> : <Plus size={14} />}{status}</div></button>
 }
 
+const fetcher = (url: string) => fetch(url).then((response) => response.json())
+
 function Overview({ onNavigate, onShare }: { onNavigate: (item: string) => void; onShare: () => void }) {
+  const { data, isLoading } = useSWR('/api/dashboard', fetcher)
+  const liveScore = data?.report?.score ?? null
+  const liveArchetype = data?.report?.archetype ?? null
+  const connectedCount = data?.connections?.filter((connection: { status: string }) => connection.status === 'connected').length ?? 0
   return <div className="content-wrap">
     <section className="welcome-row"><div><p className="eyebrow">Monday, September 23, 2026</p><h1>Good morning, Damian <Sparkles className="wave" size={20} /></h1><p className="welcome-copy">Your digital life has some explaining to do.</p></div><button className="primary-button" onClick={() => onNavigate('My Report')}><Sparkles size={17} /> View my report <ArrowUpRight size={16} /></button></section>
     <section className="hero-grid">
-      <div className="score-card card-surface"><div className="card-kicker"><span>YOUR LIFE SCORE</span><button className="more-button" aria-label="More options"><MoreHorizontal size={19} /></button></div><div className="score-main"><ScoreRing /><div className="score-note"><div className="trend-pill"><ArrowUpRight size={14} /> 4 pts <span>since last month</span></div><p>You are doing better than your calendar suggests.</p><button className="text-button" onClick={() => onNavigate('Trends')}>See what changed <ChevronRight size={15} /></button></div></div><div className="score-footer"><span><span className="status-dot" />Based on 3 connected sources</span><button onClick={onShare}><Share2 size={15} /> Share score</button></div></div>
-      <div className="archetype-card"><div className="archetype-orb"><Sparkles className="orb-star" size={37} /></div><div><span className="card-kicker light">YOUR ARCHETYPE</span><h2>{generatedReport.archetype.name.replace('The ', 'The ').replace(' ', '\u00a0').split('\u00a0').map((word, index) => <span key={index}>{word}{index === 0 ? <br /> : ' '}</span>)}</h2><p>{generatedReport.archetype.summary}</p><button className="light-button" onClick={() => onNavigate('My Report')}>Explore your archetype <ArrowUpRight size={15} /></button></div></div>
+      <div className="score-card card-surface"><div className="card-kicker"><span>YOUR LIFE SCORE</span><button className="more-button" aria-label="More options"><MoreHorizontal size={19} /></button></div><div className="score-main"><ScoreRing score={liveScore ?? undefined} /><div className="score-note"><div className="trend-pill"><ArrowUpRight size={14} /> 4 pts <span>since last month</span></div><p>You are doing better than your calendar suggests.</p><button className="text-button" onClick={() => onNavigate('Trends')}>See what changed <ChevronRight size={15} /></button></div></div><div className="score-footer"><span><span className="status-dot" />{liveScore === null ? 'Connect a source to begin' : `Based on ${connectedCount} connected sources`}</span><button onClick={onShare}><Share2 size={15} /> Share score</button></div></div>
+      <div className="archetype-card"><div className="archetype-orb"><Sparkles className="orb-star" size={37} /></div><div><span className="card-kicker light">YOUR ARCHETYPE</span><h2>{(liveArchetype ?? generatedReport.archetype.name).replace('The ', 'The ').replace(' ', '\u00a0').split('\u00a0').map((word, index) => <span key={index}>{word}{index === 0 ? <br /> : ' '}</span>)}</h2><p>{liveArchetype ? 'Your latest persisted report archetype.' : isLoading ? 'Loading your latest report.' : 'Generate your first report to discover your archetype.'}</p><button className="light-button" onClick={() => onNavigate('My Report')}>Explore your archetype <ArrowUpRight size={15} /></button></div></div>
     </section>
     <section className="section-heading"><div><p className="eyebrow">THE BIG PICTURE</p><h2>Your life dimensions</h2></div><button className="text-button" onClick={() => onNavigate('My Report')}>View full breakdown <ChevronRight size={15} /></button></section>
     <section className="dimension-grid">{dimensions.map((item) => { const Icon = item.icon; return <div className="dimension-card card-surface" key={item.label}><div className="dimension-top"><div className="dimension-icon" style={{ color: item.color, background: `${item.color}18` }}><Icon size={17} /></div><span>{item.label}</span><strong>{item.score}</strong></div><div className="progress-track"><div className="progress-fill" style={{ width: `${item.score}%`, background: item.color }} /></div><span className="dimension-caption">{item.score > 85 ? 'A standout strength' : item.score > 75 ? 'Looking good' : 'Room to grow'}</span></div> })}</section>

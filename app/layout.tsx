@@ -5,7 +5,6 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'Rate My Life — What does your digital life say about you?',
   description: 'Turn the parts of your digital life you choose to share into a playful, personal Life Report.',
-  generator: 'v0.app',
   icons: {
     icon: [
       {

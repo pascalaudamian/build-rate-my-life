@@ -46,6 +46,8 @@ export const verification = pgTable('verification', {
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 })
 
+export const analyticsEvents = pgTable('analytics_events', { id: text('id').primaryKey(), userId: text('userId'), event: text('event').notNull(), properties: jsonb('properties').notNull().default({}), createdAt: timestamp('createdAt').notNull().defaultNow() })
+
 export const shareEvents = pgTable('share_events', {
   id: text('id').primaryKey(),
   event: text('event').notNull(),
@@ -69,6 +71,11 @@ export const achievements = pgTable('achievements', { id: text('id').primaryKey(
 export const friendships = pgTable('friendships', { id: text('id').primaryKey(), userId: text('userId').notNull(), friendUserId: text('friendUserId').notNull(), status: text('status').notNull().default('accepted'), createdAt: timestamp('createdAt').notNull().defaultNow() })
 export const comparisons = pgTable('comparisons', { id: text('id').primaryKey(), userId: text('userId').notNull(), friendUserId: text('friendUserId').notNull(), visibility: text('visibility').notNull().default('private'), snapshot: jsonb('snapshot').notNull(), createdAt: timestamp('createdAt').notNull().defaultNow() })
 export const shares = pgTable('shares', { id: text('id').primaryKey(), userId: text('userId').notNull(), reportId: text('reportId'), code: text('code').notNull().unique(), visibility: text('visibility').notNull().default('limited'), createdAt: timestamp('createdAt').notNull().defaultNow() })
+
+export const consentRecords = pgTable('consent_records', { id: text('id').primaryKey(), userId: text('userId').notNull(), purpose: text('purpose').notNull(), source: text('source'), granted: boolean('granted').notNull().default(false), version: text('version').notNull().default('1.0'), createdAt: timestamp('createdAt').notNull().defaultNow(), updatedAt: timestamp('updatedAt').notNull().defaultNow() })
+export const reportEvidence = pgTable('report_evidence', { id: text('id').primaryKey(), userId: text('userId').notNull(), reportId: text('reportId').notNull(), label: text('label').notNull(), value: text('value').notNull(), source: text('source'), confidence: integer('confidence'), createdAt: timestamp('createdAt').notNull().defaultNow() })
+export const weeklyPulses = pgTable('weekly_pulses', { id: text('id').primaryKey(), userId: text('userId').notNull(), week: text('week').notNull(), mood: integer('mood'), energy: integer('energy'), focus: integer('focus'), reflection: text('reflection'), createdAt: timestamp('createdAt').notNull().defaultNow(), updatedAt: timestamp('updatedAt').notNull().defaultNow() })
+export const experiments = pgTable('experiments', { id: text('id').primaryKey(), userId: text('userId').notNull(), title: text('title').notNull(), description: text('description').notNull(), status: text('status').notNull().default('active'), targetDays: integer('targetDays').notNull().default(7), startedAt: timestamp('startedAt').notNull().defaultNow(), completedAt: timestamp('completedAt') })
 
 export const lifeReports = pgTable('life_reports', {
   id: text('id').primaryKey(),
