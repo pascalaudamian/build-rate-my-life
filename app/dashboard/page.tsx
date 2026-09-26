@@ -4,6 +4,7 @@ import { useState } from 'react'
 import useSWR from 'swr'
 import { generateLifeReport } from '@/lib/scoring-engine'
 import { AnalyticsDashboard } from '@/components/analytics-dashboard'
+import { ThemeToggle } from '@/components/theme-toggle'
 import { saveWeeklyPulse, startExperiment } from '@/app/actions/retention'
 import { supportedSources } from '@/lib/life-report'
 import {
@@ -97,7 +98,7 @@ function Sidebar({ active, onNavigate }: { active: string; onNavigate: (item: st
 }
 
 function Header({ active, onMenu }: { active: string; onMenu: () => void }) {
-  return <header className="topbar"><button className="mobile-menu" onClick={onMenu} aria-label="Open navigation"><Menu size={21} /></button><div className="breadcrumb"><span>Workspace</span><ChevronRight size={14} /><strong>{active}</strong></div><div className="top-actions"><button className="icon-button" aria-label="Search"><Search size={18} /></button><button className="icon-button notification" aria-label="Notifications"><Bell size={18} /><span /></button><div className="top-avatar">DS</div></div></header>
+  return <header className="topbar"><button className="mobile-menu" onClick={onMenu} aria-label="Open navigation"><Menu size={21} /></button><div className="breadcrumb"><span>Workspace</span><ChevronRight size={14} /><strong>{active}</strong></div><div className="top-actions"><ThemeToggle /><button className="icon-button" aria-label="Search"><Search size={18} /></button><button className="icon-button notification" aria-label="Notifications"><Bell size={18} /><span /></button><div className="top-avatar">DS</div></div></header>
 }
 
 function SourceCard({ icon, title, detail, status, accent, onClick }: { icon: React.ReactNode; title: string; detail: string; status: string; accent: string; onClick: () => void }) {

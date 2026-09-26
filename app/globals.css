@@ -4,7 +4,15 @@
 
 @custom-variant dark (&:is(.dark *));
 
-:root { --ink:#1d1d27; --muted:#85838f; --line:#ececf1; --paper:#fbfbfd; --purple:#6f5cff; --coral:#fa6c4f; --teal:#46b1a4; --yellow:#f4b64a; --pink:#e56ca2; --radius:20px; color-scheme:light; }
+:root { --ink:#1d1d27; --muted:#85838f; --line:#ececf1; --paper:#fbfbfd; --surface:#fff; --soft:#f8f8fb; --purple:#6f5cff; --coral:#fa6c4f; --teal:#46b1a4; --yellow:#f4b64a; --pink:#e56ca2; --radius:20px; color-scheme:light; }
+html[data-theme='dark'] { --ink:#f5f5f7; --muted:#aaa9b5; --line:#30303a; --paper:#101014; --surface:#19191f; --soft:#24242d; color-scheme:dark; }
+html[data-theme='dark'] body, html[data-theme='dark'] .landing-page { background:var(--paper); color:var(--ink); }
+html[data-theme='dark'] .sidebar, html[data-theme='dark'] .card-surface, html[data-theme='dark'] .auth-card, html[data-theme='dark'] .empty-feature, html[data-theme='dark'] .data-source-row, html[data-theme='dark'] .settings-section { background:var(--surface); }
+html[data-theme='dark'] .topbar { background:rgba(16,16,20,.86); }
+html[data-theme='dark'] .profile-mini, html[data-theme='dark'] .auth-card input, html[data-theme='dark'] .auth-card input, html[data-theme='dark'] .social-button { background:var(--soft); color:var(--ink); }
+html[data-theme='dark'] .auth-shell { background:radial-gradient(circle at 20% 10%, rgba(111,92,255,.2), transparent 30%), var(--paper); }
+html[data-theme='dark'] .landing-nav .brand, html[data-theme='dark'] .landing-footer .brand, html[data-theme='dark'] .hero-copy h1, html[data-theme='dark'] .landing-page { color:var(--ink); }
+.theme-toggle { display:inline-flex; align-items:center; gap:7px; padding:8px 10px; border:1px solid var(--line); border-radius:999px; background:var(--surface); color:var(--ink); font-size:11px; font-weight:800; white-space:nowrap; }.theme-toggle-icon { display:grid; place-items:center; color:var(--purple); }
 * { box-sizing:border-box; }
 html { background:var(--paper); }
 body { margin:0; background:var(--paper); color:var(--ink); font-family: Arial, Helvetica, sans-serif; }
