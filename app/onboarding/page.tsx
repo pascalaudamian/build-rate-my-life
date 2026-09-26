@@ -2,15 +2,42 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { ArrowRight, CalendarDays, Check, ChevronLeft, LockKeyhole, MessageCircle, Music2, Upload } from 'lucide-react'
+import { ArrowRight, CalendarDays, Check, ChevronLeft, LockKeyhole, Music2, Upload, Image, Dumbbell, Bookmark, MessageCircle, WalletCards } from 'lucide-react'
 
-const choices = ['Music', 'Calendar', 'Screenshots', 'Photos', 'Spending', 'Fitness', 'Bookmarks', 'Messages']
+const choices = [
+  { label: 'Music', sourceId: 'spotify', description: 'Artists, genres, and listening activity.', icon: Music2 },
+  { label: 'Calendar', sourceId: 'calendar', description: 'Event patterns, free time, and meeting density.', icon: CalendarDays },
+  { label: 'Screenshots', sourceId: 'screenshot', description: 'Images you upload for pattern discovery.', icon: Image },
+  { label: 'Photos', sourceId: 'photos', description: 'Visual themes from selected memories.', icon: Upload },
+  { label: 'Spending', sourceId: 'spending', description: 'Only categories and patterns you choose.', icon: WalletCards },
+  { label: 'Fitness', sourceId: 'fitness', description: 'Movement and activity patterns.', icon: Dumbbell },
+  { label: 'Bookmarks', sourceId: 'bookmarks', description: 'Topics and rabbit holes you save.', icon: Bookmark },
+  { label: 'Messages', sourceId: 'messages', description: 'Communication patterns, never message content.', icon: MessageCircle },
+]
 
 export default function OnboardingPage() {
   const [step, setStep] = useState(1)
   const [name, setName] = useState('')
-  const [selected, setSelected] = useState(['Music', 'Calendar'])
-  const [source, setSource] = useState('')
-  const toggle = (item: string) => setSelected((items) => items.includes(item) ? items.filter((value) => value !== item) : [...items, item])
-  return <main className="onboarding-shell"><header className="onboarding-nav"><Link href="/" className="brand"><span className="brand-mark">R</span><span>Rate My Life</span></Link><span>Step {step} of 4</span></header><div className="onboarding-progress"><i style={{ width: `${step * 25}%` }} /></div><section className="onboarding-card">{step === 1 && <><span className="landing-eyebrow">NICE TO MEET YOU</span><h1>What should we<br /><em>call you?</em></h1><p>A first name is all we need to make your report feel like yours.</p><label>First name<input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="Damian" /></label><button className="primary-button" onClick={() => setStep(2)} disabled={!name.trim()}>Continue <ArrowRight size={17} /></button></>}{step === 2 && <><span className="landing-eyebrow">YOUR STORY, YOUR CHOICE</span><h1>What do you want<br /><em>to analyze?</em></h1><p>Pick a couple to start. You can always add or remove sources later.</p><div className="choice-grid">{choices.map((item) => <button className={`choice ${selected.includes(item) ? 'selected' : ''}`} key={item} onClick={() => toggle(item)}>{selected.includes(item) ? <Check size={16} /> : <span className="choice-empty" />}{item}</button>)}</div><button className="primary-button" onClick={() => setStep(3)}>Continue <ArrowRight size={17} /></button></>}{step === 3 && <><span className="landing-eyebrow">A LITTLE CONTEXT</span><h1>Tell us a little<br /><em>about yourself.</em></h1><p>Optional questions help us make your insights more relevant. Nothing sensitive required.</p><div className="profile-fields"><label>Age range<select><option>Prefer not to say</option><option>18–24</option><option>25–34</option><option>35–44</option><option>45+</option></select></label><label>Country<input placeholder="United States" /></label><label>Occupation category<select><option>Prefer not to say</option><option>Student</option><option>Creative</option><option>Technology</option><option>Business</option><option>Healthcare</option></select></label></div><button className="primary-button" onClick={() => setStep(4)}>Continue <ArrowRight size={17} /></button></>}{step === 4 && <><span className="landing-eyebrow">FIRST SOURCE</span><h1>Let&apos;s connect<br /><em>your first signal.</em></h1><p>Start with one source. You stay in control of what leaves this screen.</p><div className="connect-options"><button className={`connect-option ${source === 'spotify' ? 'selected' : ''}`} onClick={() => setSource('spotify')}><Music2 size={20} /><span><strong>Spotify</strong><small>Artists, genres and listening patterns</small></span><ChevronLeft size={18} /></button><button className={`connect-option ${source === 'calendar' ? 'selected' : ''}`} onClick={() => setSource('calendar')}><CalendarDays size={20} /><span><strong>Calendar</strong><small>Events, free time and meeting density</small></span><ChevronLeft size={18} /></button><button className={`connect-option ${source === 'upload' ? 'selected' : ''}`} onClick={() => setSource('upload')}><Upload size={20} /><span><strong>Upload a screenshot</strong><small>PNG, JPG or WEBP — analyzed securely</small></span><ChevronLeft size={18} /></button></div><div className="onboarding-privacy"><LockKeyhole size={16} /> Your data is private by default.</div><button className="primary-button" onClick={() => window.location.href = '/dashboard'} disabled={!source}>Build my report <ArrowRight size={17} /></button></>}</section><button className="back-step" onClick={() => setStep(Math.max(1, step - 1))} disabled={step === 1}><ChevronLeft size={16} /> Back</button></main>
+  const [selected, setSelected] = useState<string[]>([])
+  const [isConnecting, setIsConnecting] = useState(false)
+  const [error, setError] = useState('')
+
+  const toggle = (sourceId: string) => setSelected((items) => items.includes(sourceId) ? items.filter((value) => value !== sourceId) : [...items, sourceId])
+  const connectSelectedSources = async () => {
+    setIsConnecting(true)
+    setError('')
+    try {
+      const results = await Promise.all(selected.map((sourceId) => fetch('/api/data-sources', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sourceId }) })))
+      if (results.some((response) => !response.ok)) throw new Error('Some sources could not be connected.')
+      window.location.assign('/dashboard')
+    } catch (connectionError) {
+      setError(connectionError instanceof Error ? connectionError.message : 'We could not connect your sources.')
+    } finally { setIsConnecting(false) }
+  }
+
+  return <main className="onboarding-shell"><header className="onboarding-nav"><Link href="/" className="brand"><span className="brand-mark">R</span><span>Rate My Life</span></Link><span>Step {step} of 3</span></header><div className="onboarding-progress"><i style={{ width: `${step * 33.33}%` }} /></div><section className="onboarding-card">
+    {step === 1 && <><span className="landing-eyebrow">NICE TO MEET YOU</span><h1>What should we<br /><em>call you?</em></h1><p>A first name is all we need to make your report feel like yours.</p><label>First name<input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="Damian" /></label><button className="primary-button" onClick={() => setStep(2)} disabled={!name.trim()}>Continue <ArrowRight size={17} /></button></>}
+    {step === 2 && <><span className="landing-eyebrow">YOUR STORY, YOUR CHOICE</span><h1>Choose your<br /><em>data sources.</em></h1><p>Select the sources you want to connect now. You can change these choices anytime from Data sources.</p><div className="choice-grid source-choice-grid">{choices.map(({ label, sourceId, description, icon: Icon }) => <button className={`choice source-choice ${selected.includes(sourceId) ? 'selected' : ''}`} key={sourceId} onClick={() => toggle(sourceId)}><span className="choice-leading">{selected.includes(sourceId) ? <Check size={16} /> : <Icon size={16} />}</span><span><strong>{label}</strong><small>{description}</small></span></button>)}</div><div className="onboarding-actions"><button className="back-button" onClick={() => setStep(1)}><ChevronLeft size={16} /> Back</button><button className="primary-button" onClick={() => setStep(3)} disabled={!selected.length}>Continue <ArrowRight size={17} /></button></div></>}
+    {step === 3 && <><span className="landing-eyebrow">READY WHEN YOU ARE</span><h1>Connect your<br /><em>chosen sources.</em></h1><p>We&apos;ll create a private connection for each source you selected. External authorization or uploads happen next, and nothing is analyzed without your permission.</p><div className="selected-source-summary">{selected.map((sourceId) => <div key={sourceId}><Check size={15} /><span>{choices.find((choice) => choice.sourceId === sourceId)?.label}</span><small>Ready to connect</small></div>)}</div>{error && <p className="form-error" role="alert">{error}</p>}<div className="onboarding-actions"><button className="back-button" onClick={() => setStep(2)}><ChevronLeft size={16} /> Change choices</button><button className="primary-button" onClick={connectSelectedSources} disabled={isConnecting}>{isConnecting ? 'Connecting...' : 'Connect sources'} <ArrowRight size={17} /></button></div><p className="onboarding-trust"><LockKeyhole size={14} /> Your choices stay private and can be removed anytime.</p></>}
+  </section></main>
 }
