@@ -4,6 +4,7 @@ import { FormEvent, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { authClient } from '@/lib/auth-client'
+import { trackEvent } from '@/lib/analytics'
 
 export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
   const router = useRouter()
@@ -37,6 +38,7 @@ export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
       setError('We could not complete that request. Check your details and try again.')
       return
     }
+    trackEvent(isSignUp ? 'signup' : 'onboarding_started', { method: 'email' })
     router.push('/onboarding')
     router.refresh()
   }
