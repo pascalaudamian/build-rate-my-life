@@ -6,6 +6,7 @@ import { generateLifeReport } from '@/lib/scoring-engine'
 import { AnalyticsDashboard } from '@/components/analytics-dashboard'
 import { saveWeeklyPulse, startExperiment } from '@/app/actions/retention'
 import { ConnectDialog } from '@/components/connect-dialog'
+import { authClient } from '@/lib/auth-client'
 import { supportedSources } from '@/lib/life-report'
 import {
   Activity,
@@ -74,13 +75,13 @@ function ScoreRing({ size = 192, score }: { size?: number; score?: number | null
   )
 }
 
-function Sidebar({ active, onNavigate }: { active: string; onNavigate: (item: string) => void }) {
+function Sidebar({ active, onNavigate, userName, onLogout }: { active: string; onNavigate: (item: string) => void; userName: string; onLogout: () => void }) {
   const { data: sourceData } = useSWR('/api/data-sources', fetcher)
   const connectedCountLabel = sourceData?.connections?.filter((connection: { status: string }) => connection.status === 'connected' || connection.status === 'pending_authorization').length ?? 0
   return (
     <aside className="sidebar">
-      <div className="brand"><span className="brand-mark">R</span><span>Rate My Life</span></div>
-      <div className="profile-mini"><div className="avatar">DS</div><div><strong>Damian Smith</strong><span>Personal space</span></div><ChevronRight size={15} /></div>
+      <a className="brand brand-link" href="/feed" aria-label="Rate My Life shared feed"><span className="brand-mark">R</span><span>Rate My Life</span></a>
+      <div className="profile-mini"><div className="avatar">{userName.slice(0, 2).toUpperCase()}</div><div><strong>{userName}</strong><span>Personal space</span></div><button className="profile-logout" onClick={onLogout}>Log out</button></div>
       <nav className="side-nav" aria-label="Primary navigation">
         <span className="nav-caption">YOUR LIFE</span>
         {navItems.map((item) => {
@@ -97,8 +98,10 @@ function Sidebar({ active, onNavigate }: { active: string; onNavigate: (item: st
   )
 }
 
-function Header({ active, onMenu }: { active: string; onMenu: () => void }) {
-  return <header className="topbar"><button className="mobile-menu" onClick={onMenu} aria-label="Open navigation"><Menu size={21} /></button><div className="breadcrumb"><span>Workspace</span><ChevronRight size={14} /><strong>{active}</strong></div><div className="top-actions"><button className="icon-button" aria-label="Search"><Search size={18} /></button><button className="icon-button notification" aria-label="Notifications"><Bell size={18} /><span /></button><div className="top-avatar">DS</div></div></header>
+function Header({ active, onMenu, userName }: { active: string; onMenu: () => void; userName: string }) {
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  return <header className="topbar"><button className="mobile-menu" onClick={onMenu} aria-label="Open navigation"><Menu size={21} /></button><div className="breadcrumb"><span>Workspace</span><ChevronRight size={14} /><strong>{active}</strong></div><div className="top-actions"><div className={`header-search ${searchOpen ? 'open' : ''}`}>{searchOpen && <input autoFocus aria-label="Search dashboard" placeholder="Search your life..." onKeyDown={(event) => { if (event.key === 'Escape') setSearchOpen(false) }} />}<button className="icon-button" aria-label="Search" onClick={() => setSearchOpen((open) => !open)}><Search size={18} /></button></div><div className="notification-wrap"><button className="icon-button notification" aria-label="Notifications" onClick={() => setNotificationsOpen((open) => !open)}><Bell size={18} /><span /></button>{notificationsOpen && <div className="notification-popover" role="status"><strong>No new notifications</strong><p>{userName}, you&apos;re all caught up.</p></div>}</div><div className="top-avatar">{userName.slice(0, 2).toUpperCase()}</div></div></header>
 }
 
 function SourceCard({ icon, title, detail, status, accent, onClick }: { icon: React.ReactNode; title: string; detail: string; status: string; accent: string; onClick: () => void }) {
@@ -107,7 +110,7 @@ function SourceCard({ icon, title, detail, status, accent, onClick }: { icon: Re
 
 const fetcher = (url: string) => fetch(url).then((response) => response.json())
 
-function Overview({ onNavigate, onShare }: { onNavigate: (item: string) => void; onShare: () => void }) {
+function Overview({ onNavigate, onShare, userName }: { onNavigate: (item: string) => void; onShare: () => void; userName: string }) {
   const { data, isLoading } = useSWR('/api/dashboard', fetcher)
   const liveScore = data?.report?.score ?? null
   const liveArchetype = data?.report?.archetype ?? null
@@ -116,7 +119,7 @@ function Overview({ onNavigate, onShare }: { onNavigate: (item: string) => void;
   const hasReport = Boolean(data?.report)
   const liveDimensions = hasReport ? Object.entries(data.report.dimensions as Record<string, number>).map(([key, score]) => { const [label, color, icon] = dimensionMeta[key as keyof typeof dimensionMeta]; return { label, score, color, icon } }) : []
   return <div className="content-wrap">
-    <section className="welcome-row"><div><p className="eyebrow">Monday, September 23, 2026</p><h1>Good morning, Damian <Sparkles className="wave" size={20} /></h1><p className="welcome-copy">Your digital life has some explaining to do.</p></div><button className="primary-button" onClick={() => onNavigate('My Report')}><Sparkles size={17} /> View my report <ArrowUpRight size={16} /></button></section>
+    <section className="welcome-row"><div><p className="eyebrow">Monday, September 23, 2026</p><h1>Good morning, {userName} <Sparkles className="wave" size={20} /></h1><p className="welcome-copy">Your digital life has some explaining to do.</p></div><button className="primary-button" onClick={() => onNavigate('My Report')}><Sparkles size={17} /> View my report <ArrowUpRight size={16} /></button></section>
     <section className="hero-grid">
       <div className="score-card card-surface"><div className="card-kicker"><span>YOUR LIFE SCORE</span><button className="more-button" aria-label="More options"><MoreHorizontal size={19} /></button></div><div className="score-main"><ScoreRing score={liveScore ?? undefined} /><div className="score-note">{hasReport ? <><div className="trend-pill"><ArrowUpRight size={14} /> Report ready</div><p>Your score is based on the sources you chose to share.</p></> : <><div className="trend-pill neutral-pill">No report yet</div><p>Connect a source and generate your first report to see grounded insights.</p></>}<button className="text-button" onClick={() => onNavigate('Trends')}>See what changed <ChevronRight size={15} /></button></div></div><div className="score-footer"><span><span className="status-dot" />{liveScore === null ? 'Connect a source to begin' : `Based on ${connectedCount} connected sources`}</span><button onClick={onShare}><Share2 size={15} /> Share score</button></div></div>
       <div className="archetype-card"><div className="archetype-orb"><Sparkles className="orb-star" size={37} /></div><div><span className="card-kicker light">YOUR ARCHETYPE</span><h2>{(liveArchetype ?? generatedReport.archetype.name).replace('The ', 'The ').replace(' ', '\u00a0').split('\u00a0').map((word, index) => <span key={index}>{word}{index === 0 ? <br /> : ' '}</span>)}</h2><p>{liveArchetype ? 'Your latest persisted report archetype.' : isLoading ? 'Loading your latest report.' : 'Generate your first report to discover your archetype.'}</p><button className="light-button" onClick={() => onNavigate('My Report')}>Explore your archetype <ArrowUpRight size={15} /></button></div></div>
@@ -227,9 +230,12 @@ function DataSources({ onToast }: { onToast: (message: string) => void }) {
 
 export default function Page() {
   const [active, setActive] = useState('Overview')
+  const { data: me } = useSWR('/api/me', fetcher)
+  const userName = me?.user?.name ?? 'Your space'
+  const logout = async () => { await authClient.signOut(); window.location.assign('/sign-in') }
   const [mobileOpen, setMobileOpen] = useState(false)
   const [toast, setToast] = useState('')
   const navigate = (item: string) => { if (item === 'Settings') { window.location.assign('/settings'); return }; if (item === 'Monthly review') { window.location.assign('/calendar'); return }; setActive(item); setMobileOpen(false) }
   const share = async () => { const url = `${window.location.origin}/compare/damian-74`; try { await navigator.clipboard.writeText(url); setToast('Public comparison link copied'); } catch { setToast(url) }; setTimeout(() => setToast(''), 2600) }
-  return <div className="app-shell"><Sidebar active={active} onNavigate={navigate} /><div className={`mobile-drawer ${mobileOpen ? 'open' : ''}`}><button className="drawer-close" onClick={() => setMobileOpen(false)}><X size={20} /></button><Sidebar active={active} onNavigate={navigate} /></div><div className="main-area"><Header active={active} onMenu={() => setMobileOpen(true)} /><main>{active === 'Overview' && <Overview onNavigate={navigate} onShare={share} />}{active === 'My Report' && <Report onShare={share} />}{active === 'Monthly review' && <MonthlyReview onShare={share} />}{active === 'Trends' && <Trends />}{active === 'Analytics' && <AnalyticsDashboard />}{active === 'Data sources' && <DataSources onToast={setToast} />}{active === 'Challenges' && <Challenges />}{active === 'Weekly pulse' && <WeeklyPulse />}{active === 'Experiments' && <Experiments />}{active === 'Friends' && <Friends />}{active === 'Settings' && <div className="content-wrap simple-page"><span className="eyebrow">YOUR SPACE</span><h1>Make it<br /><em>feel like you.</em></h1><div className="empty-feature"><Settings size={28} /><h2>Settings are coming together.</h2><p>Your profile, notifications and sharing preferences will live here.</p></div></div>}{active === 'Privacy Center' && <div className="content-wrap simple-page"><span className="eyebrow">PRIVACY CENTER</span><h1>Your data,<br /><em>your rules.</em></h1><div className="empty-feature"><LockKeyhole size={28} /><h2>Privacy controls live in one place.</h2><p>Review connected sources, export your data, and manage deletion requests.</p><a className="primary-button" href="/privacy">Open privacy center <ArrowUpRight size={16} /></a></div></div>}</main></div>{toast && <div className="toast"><span className="toast-check">✓</span>{toast}</div>}</div>
+  return <div className="app-shell"><Sidebar active={active} onNavigate={navigate} userName={userName} onLogout={logout} /><div className={`mobile-drawer ${mobileOpen ? 'open' : ''}`}><button className="drawer-close" onClick={() => setMobileOpen(false)}><X size={20} /></button><Sidebar active={active} onNavigate={navigate} userName={userName} onLogout={logout} /></div><div className="main-area"><Header active={active} onMenu={() => setMobileOpen(true)} userName={userName} /><main>{active === 'Overview' && <Overview onNavigate={navigate} onShare={share} userName={userName} />}{active === 'My Report' && <Report onShare={share} />}{active === 'Monthly review' && <MonthlyReview onShare={share} />}{active === 'Trends' && <Trends />}{active === 'Analytics' && <AnalyticsDashboard />}{active === 'Data sources' && <DataSources onToast={setToast} />}{active === 'Challenges' && <Challenges />}{active === 'Weekly pulse' && <WeeklyPulse />}{active === 'Experiments' && <Experiments />}{active === 'Friends' && <Friends />}{active === 'Settings' && <div className="content-wrap simple-page"><span className="eyebrow">YOUR SPACE</span><h1>Make it<br /><em>feel like you.</em></h1><div className="empty-feature"><Settings size={28} /><h2>Settings are coming together.</h2><p>Your profile, notifications and sharing preferences will live here.</p></div></div>}{active === 'Privacy Center' && <div className="content-wrap simple-page"><span className="eyebrow">PRIVACY CENTER</span><h1>Your data,<br /><em>your rules.</em></h1><div className="empty-feature"><LockKeyhole size={28} /><h2>Privacy controls live in one place.</h2><p>Review connected sources, export your data, and manage deletion requests.</p><a className="primary-button" href="/privacy">Open privacy center <ArrowUpRight size={16} /></a></div></div>}</main></div>{toast && <div className="toast"><span className="toast-check">✓</span>{toast}</div>}</div>
 }
