@@ -72,12 +72,6 @@ const providers: Provider[] = [
     icon: ExternalLink,
   },
   {
-    id: 'youtube',
-    label: 'YouTube',
-    description: 'Watch themes and channel activity.',
-    icon: Globe2,
-  },
-  {
     id: 'spotify',
     label: 'Spotify',
     description: 'Artists, genres, and listening activity.',
