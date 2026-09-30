@@ -1,45 +1,348 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import useSWR from 'swr'
-import { Check, ExternalLink, Globe2, Link2, Music2, RefreshCw, Unplug, Youtube } from 'lucide-react'
+import {
+  Check,
+  ExternalLink,
+  Globe2,
+  Link2,
+  Loader2,
+  Music2,
+  RefreshCw,
+  Unplug,
+} from 'lucide-react'
+
 import { ConnectSocialAccountModal } from '@/components/social/connect-social-account-modal'
 
-const fetcher = (url: string) => fetch(url).then((response) => response.json())
-const providers = [
-  { id: 'facebook', label: 'Facebook', description: 'Pages and permitted engagement signals.', icon: Globe2, auth: 'facebook' as const },
-  { id: 'instagram', label: 'Instagram', description: 'Business profile and permitted activity.', icon: Globe2 },
-  { id: 'linkedin', label: 'LinkedIn', description: 'Professional interests and learning themes.', icon: Link2 },
-  { id: 'x', label: 'X', description: 'Public conversations and topics you choose.', icon: ExternalLink },
-  { id: 'youtube', label: 'YouTube', description: 'Watch themes and channel activity.', icon: Globe2 },
-  { id: 'spotify', label: 'Spotify', description: 'Artists, genres, and listening activity.', icon: Music2 },
+type ProviderId =
+  | 'facebook'
+  | 'instagram'
+  | 'linkedin'
+  | 'x'
+  | 'youtube'
+  | 'spotify'
+
+type Provider = {
+  id: ProviderId
+  label: string
+  description: string
+  icon: typeof Globe2
+  auth?: 'facebook'
+}
+
+type ConnectionMetadata = {
+  accountName?: string
+  username?: string
+  avatarUrl?: string
+  lastSyncedAt?: string
+}
+
+type Connection = {
+  id: string
+  sourceId: string
+  status: string
+  metadata?: ConnectionMetadata
+}
+
+const providers: Provider[] = [
+  {
+    id: 'facebook',
+    label: 'Facebook',
+    description: 'Pages and permitted engagement signals.',
+    icon: Globe2,
+    auth: 'facebook',
+  },
+  {
+    id: 'instagram',
+    label: 'Instagram',
+    description: 'Business profile and permitted activity.',
+    icon: Globe2,
+  },
+  {
+    id: 'linkedin',
+    label: 'LinkedIn',
+    description: 'Professional interests and learning themes.',
+    icon: Link2,
+  },
+  {
+    id: 'x',
+    label: 'X',
+    description: 'Public conversations and topics you choose.',
+    icon: ExternalLink,
+  },
+  {
+    id: 'spotify',
+    label: 'Spotify',
+    description: 'Artists, genres, and listening activity.',
+    icon: Music2,
+  },
 ]
 
+const fetcher = async (url: string): Promise<{ connections?: Connection[] }> => {
+  const response = await fetch(url)
+
+  if (!response.ok) {
+    throw new Error('Failed to load connected accounts.')
+  }
+
+  return response.json()
+}
+
 export function ConnectedAccounts() {
-  const { data, mutate } = useSWR('/api/data-sources', fetcher)
-  const [busy, setBusy] = useState('')
-  const [message, setMessage] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
+  const [selectedProvider, setSelectedProvider] =
+    useState<ProviderId | null>(null)
+  const [busy, setBusy] = useState<ProviderId | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+
+  const { data, error, mutate, isLoading } = useSWR(
+    '/api/data-sources',
+    fetcher,
+  )
+
   const connections = data?.connections ?? []
-  const connectionFor = (id: string) => connections.find((connection: { sourceId: string; status: string }) => connection.sourceId === `social:${id}` && connection.status !== 'disconnected')
-  const socialConnections = connections.map((connection: { id: string; sourceId: string; status: string; metadata?: { accountName?: string; username?: string; avatarUrl?: string } }) => ({ id: connection.id, provider: connection.sourceId.replace(/^social:/, ''), status: connection.status, accountName: connection.metadata?.accountName, username: connection.metadata?.username, avatarUrl: connection.metadata?.avatarUrl }))
-  const connect = async (provider: typeof providers[number]) => {
-    setBusy(provider.id); setMessage('')
+
+  const socialConnections = useMemo(
+    () =>
+      connections.filter((connection) =>
+        connection.sourceId.startsWith('social:'),
+      ),
+    [connections],
+  )
+
+  const connectionFor = (providerId: ProviderId) =>
+    socialConnections.find(
+      (connection) =>
+        connection.sourceId === `social:${providerId}` &&
+        connection.status !== 'disconnected',
+    )
+
+  const openConnectModal = (providerId: ProviderId) => {
+    setMessage(null)
+    setSelectedProvider(providerId)
+    setModalOpen(true)
+  }
+
+  const handleRefresh = async (providerId: ProviderId) => {
+    const connection = connectionFor(providerId)
+
+    if (!connection) {
+      openConnectModal(providerId)
+      return
+    }
+
     try {
-      if (provider.auth) {
-        const result = await authClient.signIn.social({ provider: provider.auth, callbackURL: '/settings#sources' })
-        if (result.error) throw new Error('oauth')
-      } else {
-        const response = await fetch('/api/data-sources', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sourceId: `social:${provider.id}`, provider: provider.id }) })
-        if (!response.ok) throw new Error('connect')
-        await mutate()
-        setMessage(`${provider.label} connection is ready for authorization.`)
+      setMessage(null)
+      setBusy(providerId)
+
+      const response = await fetch('/api/data-sources/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          connectionId: connection.id,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Unable to refresh this account.')
       }
-    } catch { setMessage(`We could not start the ${provider.label} connection. Please try again.`) } finally { setBusy('') }
+
+      await mutate()
+      setMessage(`${providers.find((p) => p.id === providerId)?.label ?? 'Account'} refreshed successfully.`)
+    } catch (refreshError) {
+      setMessage(
+        refreshError instanceof Error
+          ? refreshError.message
+          : 'Unable to refresh this account.',
+      )
+    } finally {
+      setBusy(null)
+    }
   }
-  const disconnect = async (connectionId: string, label: string) => {
-    setBusy(connectionId); setMessage('')
-    try { const response = await fetch('/api/data-sources', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ connectionId }) }); if (!response.ok) throw new Error('disconnect'); await mutate(); setMessage(`${label} disconnected.`) } catch { setMessage(`We could not disconnect ${label}. Please try again.`) } finally { setBusy('') }
+
+  const handleDisconnect = async (providerId: ProviderId) => {
+    const connection = connectionFor(providerId)
+
+    if (!connection) {
+      return
+    }
+
+    try {
+      setMessage(null)
+      setBusy(providerId)
+
+      const response = await fetch('/api/data-sources', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          connectionId: connection.id,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Unable to disconnect this account.')
+      }
+
+      await mutate()
+
+      setMessage(
+        `${providers.find((p) => p.id === providerId)?.label ?? 'Account'} disconnected.`,
+      )
+    } catch (disconnectError) {
+      setMessage(
+        disconnectError instanceof Error
+          ? disconnectError.message
+          : 'Unable to disconnect this account.',
+      )
+    } finally {
+      setBusy(null)
+    }
   }
-  return <><section className="settings-section connected-accounts" aria-labelledby="connected-accounts-title"><div className="section-heading"><div><span className="section-icon"><Unplug size={18} /></span><h2 id="connected-accounts-title">Connected accounts</h2><p>Connect social accounts with official authorization. Passwords and tokens never appear here.</p></div></div><div className="connected-account-list">{providers.map((provider) => { const Icon = provider.icon; const connection = connectionFor(provider.id); return <article className="connected-account-card" key={provider.id}><div className="connected-account-icon"><Icon size={19} /></div><div className="connected-account-copy"><strong>{provider.label}</strong><span>{connection ? <><Check size={13} /> Connected · {connection.metadata?.lastSyncedAt ? 'synced recently' : 'ready to sync'}</> : provider.description}</span></div>{connection ? <button className="account-action disconnect-action" disabled={busy === connection.id} onClick={() => disconnect(connection.id, provider.label)}>{busy === connection.id ? 'Disconnecting...' : 'Disconnect'}</button> : <button className="account-action" disabled={busy === provider.id} onClick={() => setModalOpen(true)}>{busy === provider.id ? 'Connecting...' : 'Connect'} <ExternalLink size={13} /></button>}</article> })}</div>{message && <p className="connected-account-status" role="status">{message}</p>}<p className="connected-account-note"><RefreshCw size={14} /> Connections are scoped to your account and can be disconnected at any time.</p></section><ConnectSocialAccountModal open={modalOpen} onOpenChange={setModalOpen} connections={socialConnections} onConnected={() => { void mutate(); setMessage('Social account connected successfully.') }} /></>
+
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold text-foreground">
+          Connected accounts
+        </h2>
+
+        <p className="mt-1 text-sm text-muted-foreground">
+          Connect your social accounts to give Rate My Life the data it needs
+          to analyze your digital life.
+        </p>
+      </div>
+
+      {message && (
+        <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-foreground">
+          {message}
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          Unable to load your connected accounts. Please try again.
+        </div>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {providers.map((provider) => {
+          const Icon = provider.icon
+          const connection = connectionFor(provider.id)
+          const isConnected = Boolean(connection)
+          const isBusy = busy === provider.id
+
+          const accountName =
+            connection?.metadata?.accountName ??
+            connection?.metadata?.username
+
+          return (
+            <div
+              key={provider.id}
+              className="rounded-xl border border-border bg-card p-5 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-muted">
+                    <Icon className="h-5 w-5 text-foreground" />
+                  </div>
+
+                  <div className="min-w-0">
+                    <h3 className="font-medium text-foreground">
+                      {provider.label}
+                    </h3>
+
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {provider.description}
+                    </p>
+
+                    {isConnected && accountName && (
+                      <p className="mt-2 truncate text-xs text-muted-foreground">
+                        Connected as {accountName}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {isConnected && (
+                  <div className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-emerald-600">
+                    <Check className="h-3.5 w-3.5" />
+                    Connected
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-2">
+                {!isConnected ? (
+                  <button
+                    type="button"
+                    onClick={() => openConnectModal(provider.id)}
+                    disabled={isLoading}
+                    className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Connect
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleRefresh(provider.id)}
+                      disabled={isBusy}
+                      className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isBusy ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4" />
+                      )}
+
+                      Refresh
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDisconnect(provider.id)}
+                      disabled={isBusy}
+                      className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-muted-foreground transition hover:border-destructive/30 hover:bg-destructive/5 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isBusy ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Unplug className="h-4 w-4" />
+                      )}
+
+                      Disconnect
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <ConnectSocialAccountModal
+        open={modalOpen}
+        onOpenChange={(open) => {
+          setModalOpen(open)
+
+          if (!open) {
+            setSelectedProvider(null)
+          }
+        }}
+        provider={selectedProvider}
+        connections={socialConnections}
+        onConnected={() => {
+          void mutate()
+          setMessage('Social account connected successfully.')
+          setModalOpen(false)
+          setSelectedProvider(null)
+        }}
+      />
+    </section>
+  )
 }
