@@ -17,7 +17,6 @@ type ProviderId =
   | 'instagram'
   | 'linkedin'
   | 'x'
-  | 'youtube'
   | 'spotify'
 
 type ConnectionMetadata = {
@@ -73,12 +72,6 @@ const providerConfig: ProviderConfig[] = [
     label: 'X',
     description: 'Connect X and analyze the public activity you authorize.',
     icon: ExternalLink,
-  },
-  {
-    id: 'youtube',
-    label: 'YouTube',
-    description: 'Connect YouTube and analyze your viewing activity.',
-    icon: Youtube,
   },
   {
     id: 'spotify',
