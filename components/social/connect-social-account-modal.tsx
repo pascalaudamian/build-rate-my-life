@@ -1,462 +1,323 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
-  ArrowLeft,
-  ArrowRight,
   Check,
-  Facebook,
+  ExternalLink,
   Globe2,
-  Instagram,
   Link2,
-  Linkedin,
   Loader2,
-  ShieldCheck,
+  Music2,
   X,
   Youtube,
 } from 'lucide-react'
 
-type Provider = 'facebook' | 'instagram' | 'linkedin' | 'x' | 'youtube'
+type ProviderId =
+  | 'facebook'
+  | 'instagram'
+  | 'linkedin'
+  | 'x'
+  | 'youtube'
+  | 'spotify'
+
+type ConnectionMetadata = {
+  accountName?: string
+  username?: string
+  avatarUrl?: string
+  lastSyncedAt?: string
+}
 
 type Connection = {
   id: string
-  provider: Provider
-  accountName?: string | null
-  username?: string | null
-  avatarUrl?: string | null
-  status?: string
+  sourceId: string
+  status: string
+  metadata?: ConnectionMetadata
 }
 
 type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onConnected?: (connection: Connection) => void
-  providers?: Provider[]
+  provider?: ProviderId | null
   connections?: Connection[]
+  onConnected: () => void
 }
 
 type ProviderConfig = {
-  name: string
+  id: ProviderId
+  label: string
   description: string
   icon: typeof Globe2
-  configured: boolean
 }
 
-const configs: Record<Provider, ProviderConfig> = {
-  facebook: {
-    name: 'Facebook',
-    description: 'Connect your Facebook account',
-    icon: Facebook,
-    configured: true,
+const providerConfig: ProviderConfig[] = [
+  {
+    id: 'facebook',
+    label: 'Facebook',
+    description: 'Connect your Facebook account and permitted data.',
+    icon: Globe2,
   },
-
-  instagram: {
-    name: 'Instagram',
-    description: 'Connect your Instagram account',
-    icon: Instagram,
-    configured: false,
+  {
+    id: 'instagram',
+    label: 'Instagram',
+    description: 'Connect your Instagram account and permitted activity.',
+    icon: Globe2,
   },
-
-  linkedin: {
-    name: 'LinkedIn',
-    description: 'Connect your LinkedIn account',
-    icon: Linkedin,
-    configured: false,
+  {
+    id: 'linkedin',
+    label: 'LinkedIn',
+    description: 'Connect your LinkedIn account and professional activity.',
+    icon: Link2,
   },
-
-  x: {
-    name: 'X',
-    description: 'Connect your X account',
-    icon: X,
-    configured: false,
+  {
+    id: 'x',
+    label: 'X',
+    description: 'Connect X and analyze the public activity you authorize.',
+    icon: ExternalLink,
   },
-
-  youtube: {
-    name: 'YouTube',
-    description: 'Connect your YouTube channel',
+  {
+    id: 'youtube',
+    label: 'YouTube',
+    description: 'Connect YouTube and analyze your viewing activity.',
     icon: Youtube,
-    configured: true,
   },
-}
+  {
+    id: 'spotify',
+    label: 'Spotify',
+    description: 'Connect Spotify and analyze your listening activity.',
+    icon: Music2,
+  },
+]
 
 export function ConnectSocialAccountModal({
   open,
   onOpenChange,
-  onConnected,
-  providers = [
-    'facebook',
-    'instagram',
-    'linkedin',
-    'x',
-    'youtube',
-  ],
+  provider,
   connections = [],
+  onConnected,
 }: Props) {
-  const [selected, setSelected] = useState<Provider | null>(null)
-  const [status, setStatus] = useState<
-    'idle' | 'connecting' | 'error'
-  >('idle')
-  const [error, setError] = useState('')
+  const [selectedProvider, setSelectedProvider] =
+    useState<ProviderId | null>(provider ?? null)
 
-  const closeRef = useRef<HTMLButtonElement>(null)
+  const [isConnecting, setIsConnecting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const config = selected ? configs[selected] : null
-
-  const existing = selected
-    ? connections.find(
-        (connection) =>
-          connection.provider === selected &&
-          connection.status !== 'disconnected'
-      )
-    : undefined
-
-  /*
-   * Reset modal state whenever it closes.
-   * Focus the close button whenever it opens.
-   */
   useEffect(() => {
-    if (!open) {
-      setSelected(null)
-      setStatus('idle')
-      setError('')
-      return
+    if (open) {
+      setSelectedProvider(provider ?? null)
+      setError(null)
     }
+  }, [open, provider])
 
-    requestAnimationFrame(() => {
-      closeRef.current?.focus()
-    })
-  }, [open])
-
-  /*
-   * Escape closes the modal unless a connection is currently starting.
-   */
-  useEffect(() => {
-    if (!open) return
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.key === 'Escape' &&
-        status !== 'connecting'
-      ) {
-        onOpenChange(false)
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [open, status, onOpenChange])
+  const selectedConfig = useMemo(
+    () =>
+      providerConfig.find(
+        (item) => item.id === selectedProvider,
+      ) ?? null,
+    [selectedProvider],
+  )
 
   if (!open) {
     return null
   }
 
-  const connect = async () => {
-    if (!selected || !config) {
+  const handleConnect = async () => {
+    if (!selectedProvider) {
+      setError('Please select an account to connect.')
       return
     }
-
-    if (!config.configured) {
-      setStatus('error')
-      setError(
-        `${config.name} is not configured yet. Please configure the provider first.`
-      )
-      return
-    }
-
-    if (existing) {
-      return
-    }
-
-    setStatus('connecting')
-    setError('')
 
     try {
-      const response = await fetch(
-        `/api/social/${selected}/connect`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
+      setError(null)
+      setIsConnecting(true)
+
+      const existingConnection = connections.find(
+        (connection) =>
+          connection.sourceId === `social:${selectedProvider}` &&
+          connection.status !== 'disconnected',
       )
 
-      const body = await response.json().catch(() => null)
+      if (existingConnection) {
+        onConnected()
+        return
+      }
+
+      const response = await fetch('/api/data-sources', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sourceId: `social:${selectedProvider}`,
+          provider: selectedProvider,
+        }),
+      })
 
       if (!response.ok) {
-        throw new Error(
-          body?.error ??
-            `Unable to start ${config.name} connection`
-        )
+        let errorMessage = 'Unable to connect this account.'
+
+        try {
+          const body = await response.json()
+
+          if (typeof body?.error === 'string') {
+            errorMessage = body.error
+          }
+        } catch {
+          // Ignore JSON parsing errors and use the fallback message.
+        }
+
+        throw new Error(errorMessage)
       }
 
-      if (
-        !body ||
-        typeof body.authorizationUrl !== 'string' ||
-        !body.authorizationUrl
-      ) {
-        throw new Error(
-          'The connection service returned an invalid authorization URL.'
-        )
-      }
-
-      /*
-       * Redirect the browser to the OAuth provider.
-       */
-      window.location.assign(body.authorizationUrl)
-    } catch (caught) {
-      setStatus('error')
-
+      onConnected()
+    } catch (connectError) {
       setError(
-        caught instanceof Error
-          ? caught.message
-          : 'Unable to connect. Please try again.'
+        connectError instanceof Error
+          ? connectError.message
+          : 'Unable to connect this account.',
       )
+    } finally {
+      setIsConnecting(false)
     }
-  }
-
-  const handleProviderSelect = (provider: Provider) => {
-    setSelected(provider)
-    setStatus('idle')
-    setError('')
-  }
-
-  const handleBack = () => {
-    if (status === 'connecting') return
-
-    setSelected(null)
-    setStatus('idle')
-    setError('')
   }
 
   return (
     <div
-      className="social-modal-backdrop"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (
-          event.target === event.currentTarget &&
-          status !== 'connecting'
-        ) {
-          onOpenChange(false)
-        }
-      }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="connect-social-account-title"
     >
-      <section
-        className="social-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="social-modal-title"
-      >
-        {/* Header */}
-        <div className="social-modal-header">
+      <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-border bg-background shadow-xl">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div>
-            <span className="landing-eyebrow">
-              SOCIAL SIGNALS
-            </span>
-
-            <h2 id="social-modal-title">
-              {config
-                ? `Connect ${config.name}`
-                : 'Connect your social accounts'}
+            <h2
+              id="connect-social-account-title"
+              className="text-lg font-semibold text-foreground"
+            >
+              Connect social account
             </h2>
 
-            <p>
-              {config
-                ? `${config.description} to bring your digital life into Rate My Life.`
-                : 'Connect your accounts to bring your digital life into Rate My Life.'}
+            <p className="mt-1 text-sm text-muted-foreground">
+              Choose the account you want to connect.
             </p>
           </div>
 
           <button
-            ref={closeRef}
             type="button"
-            className="connect-dialog-close"
             onClick={() => onOpenChange(false)}
-            disabled={status === 'connecting'}
-            aria-label="Close dialog"
+            className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            aria-label="Close"
           >
-            <X size={17} />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Selected provider */}
-        {config ? (
-          <div className="social-confirmation">
-            <button
-              type="button"
-              className="social-back"
-              onClick={handleBack}
-              disabled={status === 'connecting'}
-            >
-              <ArrowLeft size={15} />
-              All providers
-            </button>
+        <div className="space-y-3 p-6">
+          {providerConfig.map((item) => {
+            const Icon = item.icon
+            const isSelected = selectedProvider === item.id
+            const isConnected = connections.some(
+              (connection) =>
+                connection.sourceId === `social:${item.id}` &&
+                connection.status !== 'disconnected',
+            )
 
-            <div className="social-selected">
-              <span className="social-provider-icon">
-                {(() => {
-                  const Icon = config.icon
-                  return <Icon size={22} />
-                })()}
-              </span>
-
-              <div>
-                <strong>{config.name}</strong>
-                <span>{config.description}</span>
-              </div>
-            </div>
-
-            {/* Already connected */}
-            {existing ? (
-              <div className="social-success">
-                <Check size={20} />
-
-                <div>
-                  <strong>Already connected</strong>
-
-                  <p>
-                    {existing.accountName ??
-                      existing.username ??
-                      config.name}
-                  </p>
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setSelectedProvider(item.id)
+                  setError(null)
+                }}
+                className={`flex w-full items-center gap-4 rounded-xl border p-4 text-left transition ${
+                  isSelected
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:bg-muted/50'
+                }`}
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+                  <Icon className="h-5 w-5 text-foreground" />
                 </div>
-              </div>
-            ) : (
-              <>
-                {/* Permission information */}
-                <div className="social-permission">
-                  <ShieldCheck size={18} />
 
-                  <div>
-                    <strong>
-                      Why do we need access?
-                    </strong>
-
-                    <p>
-                      Rate My Life uses permitted account
-                      information to generate your Life Score
-                      and insights. Your password is never
-                      entered here.
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-foreground">
+                      {item.label}
                     </p>
+
+                    {isConnected && (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
+                        <Check className="h-3 w-3" />
+                        Connected
+                      </span>
+                    )}
                   </div>
+
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {item.description}
+                  </p>
                 </div>
 
-                {/* Error */}
-                {status === 'error' && (
-                  <div
-                    className="social-error"
-                    role="alert"
-                  >
-                    {error}
-                  </div>
-                )}
+                <div
+                  className={`h-4 w-4 rounded-full border ${
+                    isSelected
+                      ? 'border-primary bg-primary'
+                      : 'border-muted-foreground/40'
+                  }`}
+                />
+              </button>
+            )
+          })}
 
-                {/* Connect */}
-                <button
-                  type="button"
-                  className="social-continue"
-                  onClick={connect}
-                  disabled={
-                    status === 'connecting' ||
-                    !config.configured
-                  }
-                >
-                  {status === 'connecting' ? (
-                    <>
-                      <Loader2
-                        className="spin"
-                        size={16}
-                      />
-                      Connecting securely…
-                    </>
-                  ) : (
-                    <>
-                      Continue with {config.name}
-                      <ArrowRight size={16} />
-                    </>
-                  )}
-                </button>
+          {selectedConfig && (
+            <div className="mt-4 rounded-lg bg-muted/50 p-4">
+              <div className="flex items-center gap-2">
+                <selectedConfig.icon className="h-4 w-4" />
 
-                {!config.configured && (
-                  <p className="social-coming">
-                    {config.name} is not configured yet.
-                    Please configure the OAuth credentials
-                    before connecting this provider.
-                  </p>
-                )}
-              </>
-            )}
-          </div>
-        ) : (
-          /* Provider list */
-          <div className="social-provider-list">
-            {providers.map((provider) => {
-              const item = configs[provider]
-              const Icon = item.icon
+                <span className="text-sm font-medium text-foreground">
+                  {selectedConfig.label}
+                </span>
+              </div>
 
-              const connection = connections.find(
-                (connection) =>
-                  connection.provider === provider &&
-                  connection.status !== 'disconnected'
-              )
+              <p className="mt-1 text-xs text-muted-foreground">
+                You will only share the information permitted by the
+                connection.
+              </p>
+            </div>
+          )}
 
-              const connected = Boolean(connection)
-
-              return (
-                <button
-                  type="button"
-                  className="social-provider-card"
-                  key={provider}
-                  onClick={() =>
-                    handleProviderSelect(provider)
-                  }
-                >
-                  <span className="social-provider-icon">
-                    <Icon size={20} />
-                  </span>
-
-                  <span>
-                    <strong>{item.name}</strong>
-
-                    <small>
-                      {connected
-                        ? `Connected as ${
-                            connection?.accountName ??
-                            connection?.username ??
-                            'account'
-                          }`
-                        : item.description}
-                    </small>
-                  </span>
-
-                  {connected ? (
-                    <Check
-                      className="social-card-check"
-                      size={17}
-                      aria-label="Connected"
-                    />
-                  ) : (
-                    <ArrowRight size={17} />
-                  )}
-                </button>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="social-modal-footer">
-          <ShieldCheck size={14} />
-          <span>
-            You stay in control. Connections are private by
-            default.
-          </span>
+          {error && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
         </div>
-      </section>
+
+        <div className="flex items-center justify-end gap-3 border-t border-border px-6 py-4">
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            disabled={isConnecting}
+            className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            onClick={handleConnect}
+            disabled={!selectedProvider || isConnecting}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isConnecting && (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            )}
+
+            {isConnecting ? 'Connecting...' : 'Connect account'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
