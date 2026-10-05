@@ -134,34 +134,20 @@ export function ConnectSocialAccountModal({
         return
       }
 
-      const response = await fetch('/api/data-sources', {
+      const response = await fetch(`/api/social/${selectedProvider}/connect`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sourceId: `social:${selectedProvider}`,
-          provider: selectedProvider,
-        }),
       })
 
+      const body = await response.json().catch(() => null)
       if (!response.ok) {
-        let errorMessage = 'Unable to connect this account.'
-
-        try {
-          const body = await response.json()
-
-          if (typeof body?.error === 'string') {
-            errorMessage = body.error
-          }
-        } catch {
-          // Ignore JSON parsing errors and use the fallback message.
-        }
-
-        throw new Error(errorMessage)
+        throw new Error(typeof body?.error === 'string' ? body.error : 'This data bridge is not available yet.')
       }
 
-      onConnected()
+      if (typeof body?.authorizationUrl !== 'string') {
+        throw new Error('The provider did not return an authorization link.')
+      }
+
+      window.location.assign(body.authorizationUrl)
     } catch (connectError) {
       setError(
         connectError instanceof Error
