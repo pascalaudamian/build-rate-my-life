@@ -264,18 +264,10 @@ export function ConnectDialog({
       /*
        * OAuth connection flow
        */
+      const provider = selected.id === 'google-calendar' ? 'youtube' : selected.id
       const response = await fetch(
-        '/api/data-sources',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            sourceId: source.id,
-            provider: selected.id,
-          }),
-        }
+        `/api/social/${provider}/connect`,
+        { method: 'POST' }
       )
 
       const body = await response
