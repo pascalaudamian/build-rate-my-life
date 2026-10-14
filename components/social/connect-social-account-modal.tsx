@@ -9,7 +9,6 @@ import {
   Loader2,
   Music2,
   X,
-  Youtube,
 } from 'lucide-react'
 
 type ProviderId =
@@ -17,6 +16,7 @@ type ProviderId =
   | 'instagram'
   | 'linkedin'
   | 'x'
+  | 'youtube'
   | 'spotify'
 
 type ConnectionMetadata = {
