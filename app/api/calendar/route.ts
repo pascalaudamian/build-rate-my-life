@@ -2,6 +2,14 @@ import { db } from '@/lib/db'
 import { calendarActivities } from '@/lib/db/schema'
 import { requireUser, jsonError, requestId } from '@/lib/api-auth'
 import { and, asc, eq, gte, lt } from 'drizzle-orm'
+import { z } from 'zod'
+
+const eventSchema = z.object({
+  title: z.string().trim().min(1).max(160),
+  description: z.string().trim().max(500).nullable().optional(),
+  startsAt: z.coerce.date(),
+  endsAt: z.coerce.date(),
+}).refine((event) => event.endsAt > event.startsAt, { message: 'End time must be after start time.' })
 
 function parseDate(value: unknown) { if (typeof value !== 'string') return null; const date = new Date(value); return Number.isNaN(date.getTime()) ? null : date }
 
@@ -12,15 +20,15 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const user = await requireUser(); const body = await request.json().catch(() => null); const startsAt = parseDate(body?.startsAt); const endsAt = parseDate(body?.endsAt)
-  if (!body || typeof body.title !== 'string' || !body.title.trim() || !startsAt || !endsAt) return jsonError('title, startsAt, and endsAt are required'); if (endsAt <= startsAt) return jsonError('End time must be after start time.')
-  const [activity] = await db.insert(calendarActivities).values({ id: requestId(), userId: user.id, title: body.title.trim().slice(0, 160), description: typeof body.description === 'string' ? body.description.trim().slice(0, 500) : null, startsAt, endsAt, source: 'manual' }).returning(); return Response.json({ activity }, { status: 201 })
+  const user = await requireUser(); const body = await request.json().catch(() => null); const parsed = eventSchema.safeParse(body)
+  if (!parsed.success) return jsonError(parsed.error.issues[0]?.message ?? 'Invalid event.')
+  const [activity] = await db.insert(calendarActivities).values({ id: requestId(), userId: user.id, title: parsed.data.title, description: parsed.data.description ?? null, startsAt: parsed.data.startsAt, endsAt: parsed.data.endsAt, source: 'manual' }).returning(); return Response.json({ activity }, { status: 201 })
 }
 
 export async function PUT(request: Request) {
-  const user = await requireUser(); const body = await request.json().catch(() => null); const startsAt = parseDate(body?.startsAt); const endsAt = parseDate(body?.endsAt)
-  if (typeof body?.id !== 'string' || typeof body.title !== 'string' || !body.title.trim() || !startsAt || !endsAt) return jsonError('id, title, startsAt, and endsAt are required'); if (endsAt <= startsAt) return jsonError('End time must be after start time.')
-  const [activity] = await db.update(calendarActivities).set({ title: body.title.trim().slice(0, 160), description: typeof body.description === 'string' ? body.description.trim().slice(0, 500) : null, startsAt, endsAt, updatedAt: new Date() }).where(and(eq(calendarActivities.id, body.id), eq(calendarActivities.userId, user.id))).returning(); if (!activity) return jsonError('Event not found.', 404); return Response.json({ activity })
+  const user = await requireUser(); const body = await request.json().catch(() => null); const parsed = eventSchema.safeParse(body)
+  if (!parsed.success || typeof body?.id !== 'string') return jsonError(parsed.success ? 'id is required.' : parsed.error.issues[0]?.message ?? 'Invalid event.')
+  const [activity] = await db.update(calendarActivities).set({ title: parsed.data.title, description: parsed.data.description ?? null, startsAt: parsed.data.startsAt, endsAt: parsed.data.endsAt, updatedAt: new Date() }).where(and(eq(calendarActivities.id, body.id), eq(calendarActivities.userId, user.id))).returning(); if (!activity) return jsonError('Event not found.', 404); return Response.json({ activity })
 }
 
 export async function DELETE(request: Request) {

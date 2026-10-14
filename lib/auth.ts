@@ -24,8 +24,13 @@ const developmentOrigins = [
 
 const baseURL = configuredBaseURL ?? process.env.V0_RUNTIME_URL ?? 'http://localhost:3000'
 
+if (process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE !== 'phase-production-build' && !process.env.BETTER_AUTH_SECRET) {
+  throw new Error('BETTER_AUTH_SECRET must be configured in production.')
+}
+
 export const auth = betterAuth({
   database: new Pool({ connectionString: process.env.DATABASE_URL }),
+  secret: process.env.BETTER_AUTH_SECRET,
   baseURL,
   trustedOrigins: process.env.NODE_ENV === 'development' ? developmentOrigins : productionOrigins,
   emailAndPassword: { enabled: true },
